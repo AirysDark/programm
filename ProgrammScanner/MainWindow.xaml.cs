@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace ProgrammScanner;
 
@@ -19,11 +20,35 @@ public partial class MainWindow : Window
         StatusText.Text = "Ready to scan.";
     }
 
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+        {
+            if (e.ClickCount == 2)
+                ToggleMaximizeRestore();
+            else
+                DragMove();
+        }
+    }
+
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void MaximizeRestoreButton_Click(object sender, RoutedEventArgs e) => ToggleMaximizeRestore();
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void ToggleMaximizeRestore()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    }
+
+    private void Window_StateChanged(object sender, EventArgs e)
+    {
+        MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "▢";
+    }
+
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         ScanButton.IsEnabled = false;
         StatusText.Text = "Scanning installed programs and resolving locations...";
-
         try
         {
             _programs = await Task.Run(ProgramScannerService.Scan);
