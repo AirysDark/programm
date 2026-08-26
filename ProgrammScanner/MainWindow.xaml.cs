@@ -83,6 +83,35 @@ public partial class MainWindow : Window
         OpenSelectedUrl(p => p.DownloadUrl, "No download link has been found for this program yet.");
     }
 
+    private void OpenInBrowserMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+
+        string? url = null;
+        switch (contextMenu.PlacementTarget)
+        {
+            case Button button when button.Tag?.ToString() == "OfficialWebsite":
+                url = (ProgramsGrid.SelectedItem as InstalledProgram)?.OfficialWebsite;
+                break;
+
+            case Button button when button.Tag?.ToString() == "DownloadUrl":
+                url = (ProgramsGrid.SelectedItem as InstalledProgram)?.DownloadUrl;
+                break;
+
+            case DataGridCell cell when cell.DataContext is InstalledProgram program:
+                url = cell.Tag?.ToString() switch
+                {
+                    "OfficialWebsite" => program.OfficialWebsite,
+                    "DownloadUrl" => program.DownloadUrl,
+                    _ => null
+                };
+                break;
+        }
+
+        OpenUrlInBrowser(url);
+    }
+
     private void OpenSelectedUrl(Func<InstalledProgram, string> selector, string emptyMessage)
     {
         var program = ProgramsGrid.SelectedItem as InstalledProgram;
@@ -95,9 +124,27 @@ public partial class MainWindow : Window
             return;
         }
 
+        OpenUrlInBrowser(url);
+    }
+
+    private void OpenUrlInBrowser(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            MessageBox.Show("No link is available for this item.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            MessageBox.Show("The selected link is not a valid HTTP or HTTPS URL.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         Process.Start(new ProcessStartInfo
         {
-            FileName = url,
+            FileName = uri.AbsoluteUri,
             UseShellExecute = true
         });
     }
