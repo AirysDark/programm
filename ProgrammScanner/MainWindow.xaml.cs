@@ -54,18 +54,18 @@ public partial class MainWindow : Window
 
         try
         {
-            var rows = ReadCsvFile(dialog.FileName);
+            List<List<string>> rows = ReadCsvFile(dialog.FileName);
             if (rows.Count < 2) throw new InvalidDataException("The CSV file does not contain a header and at least one data row.");
 
-            var headers = rows[0].Select(NormalizeHeader).ToList();
-            var nameColumn = FindColumn(headers, "program", "name", "displayname", "application", "app");
+            List<string> headers = rows[0].Select(NormalizeHeader).ToList();
+            int nameColumn = FindColumn(headers, "program", "name", "displayname", "application", "app");
             if (nameColumn < 0) throw new InvalidDataException("No Program or Name column was found in the CSV file.");
 
             var imported = new List<InstalledProgram>();
-            foreach (var row in rows.Skip(1))
+            foreach (List<string> row in rows.Skip(1))
             {
                 if (row.All(string.IsNullOrWhiteSpace)) continue;
-                var name = GetColumn(row, nameColumn);
+                string name = GetColumn(row, nameColumn);
                 if (string.IsNullOrWhiteSpace(name)) continue;
 
                 imported.Add(new InstalledProgram
@@ -106,7 +106,7 @@ public partial class MainWindow : Window
 
     private async void FindOnlineCheckedButton_Click(object sender, RoutedEventArgs e)
     {
-        var selected = _programs.Where(p => p.IsOnlineSelected).ToList();
+        List<InstalledProgram> selected = _programs.Where(p => p.IsOnlineSelected).ToList();
         if (selected.Count == 0) { MessageBox.Show("Tick one or more programs first.", "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         await LookupProgramsAsync(selected);
     }
@@ -117,7 +117,7 @@ public partial class MainWindow : Window
         var completed = 0; var failures = 0;
         try
         {
-            foreach (var program in programs)
+            foreach (InstalledProgram program in programs)
             {
                 StatusText.Text = $"Searching {++completed}/{programs.Count}: {program.Name}";
                 try { await OnlineProgramLookupService.LookupAsync(program); } catch { failures++; program.OnlineStatus = "Lookup failed"; }
@@ -131,13 +131,13 @@ public partial class MainWindow : Window
     private void SetLookupControlsEnabled(bool enabled) { FindOnlineButton.IsEnabled = enabled; FindOnlineCheckedButton.IsEnabled = enabled; SelectAllCheckBox.IsEnabled = enabled; }
     private void SelectAllCheckBox_Checked(object sender, RoutedEventArgs e) => SetAllOnlineSelections(true);
     private void SelectAllCheckBox_Unchecked(object sender, RoutedEventArgs e) => SetAllOnlineSelections(false);
-    private void SetAllOnlineSelections(bool selected) { foreach (var program in _programs) program.IsOnlineSelected = selected; ProgramsGrid.Items.Refresh(); }
+    private void SetAllOnlineSelections(bool selected) { foreach (InstalledProgram program in _programs) program.IsOnlineSelected = selected; ProgramsGrid.Items.Refresh(); }
     private void OpenWebsiteButton_Click(object sender, RoutedEventArgs e) => OpenSelectedUrl(p => p.OfficialWebsite, "No official website has been found for this program yet.");
     private void OpenDownloadButton_Click(object sender, RoutedEventArgs e) => OpenSelectedUrl(p => p.DownloadUrl, "No download link has been found for this program yet.");
 
     private void OpenInBrowserMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        var url = (ProgramsGrid.SelectedItem as InstalledProgram)?.DownloadUrl;
+        string? url = (ProgramsGrid.SelectedItem as InstalledProgram)?.DownloadUrl;
         if (string.IsNullOrWhiteSpace(url)) url = (ProgramsGrid.SelectedItem as InstalledProgram)?.OfficialWebsite;
         OpenUrlInBrowser(url);
     }
@@ -145,21 +145,21 @@ public partial class MainWindow : Window
     private void OpenSelectedUrl(Func<InstalledProgram, string> selector, string emptyMessage)
     {
         if (ProgramsGrid.SelectedItem is not InstalledProgram program) return;
-        var url = selector(program);
+        string url = selector(program);
         if (string.IsNullOrWhiteSpace(url)) { MessageBox.Show(emptyMessage, "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         OpenUrlInBrowser(url);
     }
 
     private static void OpenUrlInBrowser(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)) { MessageBox.Show("No valid HTTP or HTTPS link is available.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)) { MessageBox.Show("No valid HTTP or HTTPS link is available.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Information); return; }
         Process.Start(new ProcessStartInfo { FileName = uri.AbsoluteUri, UseShellExecute = true });
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
     private void ApplyFilter()
     {
-        var search = SearchBox.Text.Trim();
+        string search = SearchBox.Text.Trim();
         ProgramsGrid.ItemsSource = string.IsNullOrWhiteSpace(search) ? _programs : _programs.Where(p => p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || p.Version.Contains(search, StringComparison.OrdinalIgnoreCase) || p.Publisher.Contains(search, StringComparison.OrdinalIgnoreCase) || p.InstallLocation.Contains(search, StringComparison.OrdinalIgnoreCase) || p.ActualInstallPath.Contains(search, StringComparison.OrdinalIgnoreCase) || p.ParentProgram.Contains(search, StringComparison.OrdinalIgnoreCase) || p.OfficialWebsite.Contains(search, StringComparison.OrdinalIgnoreCase) || p.DownloadUrl.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
@@ -182,7 +182,7 @@ public partial class MainWindow : Window
         var inQuotes = false;
         while (reader.Peek() >= 0)
         {
-            var c = (char)reader.Read();
+            char c = (char)reader.Read();
             if (c == '"')
             {
                 if (inQuotes && reader.Peek() == '"') { reader.Read(); field.Append('"'); }
@@ -202,16 +202,18 @@ public partial class MainWindow : Window
         return rows;
     }
 
-    private static string NormalizeHeader(string value) => new(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-    private static int FindColumn(IReadOnlyList<string> headers, params string[] names)
+    private static string NormalizeHeader(string value) => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+    private static int FindColumn(List<string> headers, params string[] names)
     {
-        foreach (var name in names)
+        foreach (string name in names)
         {
-            var index = headers.IndexOf(NormalizeHeader(name));
+            int index = headers.IndexOf(NormalizeHeader(name));
             if (index >= 0) return index;
         }
         return -1;
     }
-    private static string GetColumn(IReadOnlyList<string> row, int index, string fallback = "") => index >= 0 && index < row.Count ? row[index].Trim() : fallback;
+
+    private static string GetColumn(List<string> row, int index, string fallback = "") => index >= 0 && index < row.Count ? row[index].Trim() : fallback;
     private static string Csv(string value) => $"\"{(value ?? "").Replace("\"", "\"\"")}\"";
 }
