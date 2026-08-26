@@ -22,13 +22,14 @@ public partial class MainWindow : Window
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         ScanButton.IsEnabled = false;
-        StatusText.Text = "Scanning installed programs...";
+        StatusText.Text = "Scanning installed programs and resolving locations...";
 
         try
         {
             _programs = await Task.Run(ProgramScannerService.Scan);
             ApplyFilter();
-            StatusText.Text = $"Found {_programs.Count} installed program entries.";
+            var foundLocations = _programs.Count(p => !string.IsNullOrWhiteSpace(p.ActualInstallPath));
+            StatusText.Text = $"Found {_programs.Count} programs. Resolved {foundLocations} install locations.";
         }
         catch (Exception ex)
         {
@@ -52,7 +53,9 @@ public partial class MainWindow : Window
                 p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                 p.Version.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                 p.Publisher.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.InstallLocation.Contains(search, StringComparison.OrdinalIgnoreCase))
+                p.InstallLocation.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                p.ActualInstallPath.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                p.ParentProgram.Contains(search, StringComparison.OrdinalIgnoreCase))
               .ToList();
 
         ProgramsGrid.ItemsSource = filtered;
@@ -62,8 +65,8 @@ public partial class MainWindow : Window
     {
         var program = ProgramsGrid.SelectedItem as InstalledProgram;
         if (program == null ||
-            string.IsNullOrWhiteSpace(program.InstallLocation) ||
-            !Directory.Exists(program.InstallLocation))
+            string.IsNullOrWhiteSpace(program.ActualInstallPath) ||
+            !Directory.Exists(program.ActualInstallPath))
         {
             return;
         }
@@ -71,7 +74,7 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo
         {
             FileName = "explorer.exe",
-            Arguments = $"\"{program.InstallLocation}\"",
+            Arguments = $"\"{program.ActualInstallPath}\"",
             UseShellExecute = true
         });
     }
@@ -86,9 +89,20 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog() != true) return;
 
-        var rows = new List<string> { "Program,Version,Publisher,Install Location,Source" };
+        var rows = new List<string>
+        {
+            "Program,Version,Publisher,Install Location,Actual Path,Location Source,Parent Program,Source"
+        };
+
         rows.AddRange(_programs.Select(p => string.Join(",",
-            Csv(p.Name), Csv(p.Version), Csv(p.Publisher), Csv(p.InstallLocation), Csv(p.Source))));
+            Csv(p.Name),
+            Csv(p.Version),
+            Csv(p.Publisher),
+            Csv(p.InstallLocation),
+            Csv(p.ActualInstallPath),
+            Csv(p.LocationSource),
+            Csv(p.ParentProgram),
+            Csv(p.Source))));
 
         File.WriteAllText(dialog.FileName, string.Join(Environment.NewLine, rows), new UTF8Encoding(true));
         StatusText.Text = $"Exported {_programs.Count} programs.";
