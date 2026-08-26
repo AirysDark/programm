@@ -1,7 +1,7 @@
 <Window x:Class="ProgrammScanner.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Program Scanner" Height="650" Width="1400" MinHeight="450" MinWidth="900">
+        Title="Program Scanner" Height="650" Width="1550" MinHeight="450" MinWidth="1000">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="Installed Program Scanner" FontSize="24" FontWeight="Bold" />
@@ -22,6 +22,7 @@
                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="*" />
                 <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" />
                 <DataGridTextColumn Header="Install Location" Binding="{Binding InstallLocation}" Width="2*" />
+                <DataGridTextColumn Header="Location Source" Binding="{Binding LocationSource}" Width="*" />
                 <DataGridTextColumn Header="Parent Program" Binding="{Binding ParentProgram}" Width="*" />
                 <DataGridTextColumn Header="Actual Path" Binding="{Binding ActualInstallPath}" Width="2*" />
                 <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*" />
