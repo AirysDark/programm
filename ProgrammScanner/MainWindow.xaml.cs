@@ -27,6 +27,7 @@ public partial class MainWindow : Window
         try
         {
             _programs = await Task.Run(ProgramScannerService.Scan);
+            SelectAllCheckBox.IsChecked = false;
             ApplyFilter();
             var foundLocations = _programs.Count(p => !string.IsNullOrWhiteSpace(p.ActualInstallPath));
             StatusText.Text = $"Found {_programs.Count} programs. Resolved {foundLocations} install locations.";
@@ -36,10 +37,7 @@ public partial class MainWindow : Window
             MessageBox.Show(ex.Message, "Scan Error", MessageBoxButton.OK, MessageBoxImage.Error);
             StatusText.Text = "Scan failed.";
         }
-        finally
-        {
-            ScanButton.IsEnabled = true;
-        }
+        finally { ScanButton.IsEnabled = true; }
     }
 
     private async void FindOnlineButton_Click(object sender, RoutedEventArgs e)
@@ -50,7 +48,6 @@ public partial class MainWindow : Window
             MessageBox.Show("Select a program first.", "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-
         await LookupProgramsAsync([program]);
     }
 
@@ -59,11 +56,9 @@ public partial class MainWindow : Window
         var selected = _programs.Where(p => p.IsOnlineSelected).ToList();
         if (selected.Count == 0)
         {
-            MessageBox.Show("Tick one or more programs in the left-hand checkbox column first.",
-                "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Tick one or more programs in the left-hand checkbox column first.", "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-
         await LookupProgramsAsync(selected);
     }
 
@@ -72,29 +67,17 @@ public partial class MainWindow : Window
         SetLookupControlsEnabled(false);
         var completed = 0;
         var failures = 0;
-
         try
         {
             foreach (var program in programs)
             {
                 completed++;
                 StatusText.Text = $"Searching {completed}/{programs.Count}: {program.Name}";
-
-                try
-                {
-                    await OnlineProgramLookupService.LookupAsync(program);
-                }
-                catch
-                {
-                    failures++;
-                    program.OnlineStatus = "Lookup failed";
-                }
-
+                try { await OnlineProgramLookupService.LookupAsync(program); }
+                catch { failures++; program.OnlineStatus = "Lookup failed"; }
                 ProgramsGrid.Items.Refresh();
             }
-
-            var success = programs.Count - failures;
-            StatusText.Text = $"Online lookup complete: {success} processed, {failures} failed.";
+            StatusText.Text = $"Online lookup complete: {programs.Count - failures} processed, {failures} failed.";
         }
         finally
         {
@@ -110,40 +93,33 @@ public partial class MainWindow : Window
         SelectAllCheckBox.IsEnabled = enabled;
     }
 
-    private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
-    {
-        var isChecked = SelectAllCheckBox.IsChecked == true;
-        foreach (var program in _programs)
-            program.IsOnlineSelected = isChecked;
+    private void SelectAllCheckBox_Checked(object sender, RoutedEventArgs e) => SetAllOnlineSelections(true);
+    private void SelectAllCheckBox_Unchecked(object sender, RoutedEventArgs e) => SetAllOnlineSelections(false);
 
+    private void SetAllOnlineSelections(bool selected)
+    {
+        foreach (var program in _programs)
+            program.IsOnlineSelected = selected;
         ProgramsGrid.Items.Refresh();
     }
 
-    private void OpenWebsiteButton_Click(object sender, RoutedEventArgs e)
-    {
+    private void OpenWebsiteButton_Click(object sender, RoutedEventArgs e) =>
         OpenSelectedUrl(p => p.OfficialWebsite, "No official website has been found for this program yet.");
-    }
 
-    private void OpenDownloadButton_Click(object sender, RoutedEventArgs e)
-    {
+    private void OpenDownloadButton_Click(object sender, RoutedEventArgs e) =>
         OpenSelectedUrl(p => p.DownloadUrl, "No download link has been found for this program yet.");
-    }
 
     private void OpenInBrowserMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem menuItem || menuItem.Parent is not ContextMenu contextMenu) return;
-
         string? url = contextMenu.PlacementTarget switch
         {
-            Button button when button.Tag?.ToString() == "OfficialWebsite" =>
-                (ProgramsGrid.SelectedItem as InstalledProgram)?.OfficialWebsite,
-            Button button when button.Tag?.ToString() == "DownloadUrl" =>
-                (ProgramsGrid.SelectedItem as InstalledProgram)?.DownloadUrl,
+            Button button when button.Tag?.ToString() == "OfficialWebsite" => (ProgramsGrid.SelectedItem as InstalledProgram)?.OfficialWebsite,
+            Button button when button.Tag?.ToString() == "DownloadUrl" => (ProgramsGrid.SelectedItem as InstalledProgram)?.DownloadUrl,
             DataGridCell cell when cell.DataContext is InstalledProgram program && cell.Tag?.ToString() == "OfficialWebsite" => program.OfficialWebsite,
             DataGridCell cell when cell.DataContext is InstalledProgram program && cell.Tag?.ToString() == "DownloadUrl" => program.DownloadUrl,
             _ => null
         };
-
         OpenUrlInBrowser(url);
     }
 
@@ -151,14 +127,12 @@ public partial class MainWindow : Window
     {
         var program = ProgramsGrid.SelectedItem as InstalledProgram;
         if (program is null) return;
-
         var url = selector(program);
         if (string.IsNullOrWhiteSpace(url))
         {
             MessageBox.Show(emptyMessage, "Online Lookup", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-
         OpenUrlInBrowser(url);
     }
 
@@ -169,14 +143,11 @@ public partial class MainWindow : Window
             MessageBox.Show("No link is available for this item.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             MessageBox.Show("The selected link is not a valid HTTP or HTTPS URL.", "Open in Browser", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-
         Process.Start(new ProcessStartInfo { FileName = uri.AbsoluteUri, UseShellExecute = true });
     }
 
@@ -185,50 +156,20 @@ public partial class MainWindow : Window
     private void ApplyFilter()
     {
         var search = SearchBox.Text.Trim();
-        var filtered = string.IsNullOrWhiteSpace(search)
-            ? _programs
-            : _programs.Where(p =>
-                p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.Version.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.Publisher.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.InstallLocation.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.ActualInstallPath.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.ParentProgram.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.OfficialWebsite.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                p.DownloadUrl.Contains(search, StringComparison.OrdinalIgnoreCase))
-              .ToList();
-
+        var filtered = string.IsNullOrWhiteSpace(search) ? _programs : _programs.Where(p =>
+            p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || p.Version.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            p.Publisher.Contains(search, StringComparison.OrdinalIgnoreCase) || p.InstallLocation.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            p.ActualInstallPath.Contains(search, StringComparison.OrdinalIgnoreCase) || p.ParentProgram.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            p.OfficialWebsite.Contains(search, StringComparison.OrdinalIgnoreCase) || p.DownloadUrl.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
         ProgramsGrid.ItemsSource = filtered;
-    }
-
-    private void ProgramsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        var program = ProgramsGrid.SelectedItem as InstalledProgram;
-        if (program == null || string.IsNullOrWhiteSpace(program.ActualInstallPath) || !Directory.Exists(program.ActualInstallPath)) return;
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "explorer.exe",
-            Arguments = $"\"{program.ActualInstallPath}\"",
-            UseShellExecute = true
-        });
     }
 
     private void ExportButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new SaveFileDialog { Filter = "CSV files (*.csv)|*.csv", FileName = "installed-programs.csv" };
         if (dialog.ShowDialog() != true) return;
-
-        var rows = new List<string>
-        {
-            "Program,Version,Publisher,Install Location,Actual Path,Location Source,Parent Program,Official Website,Download URL,Online Source,Online Status,Source"
-        };
-
-        rows.AddRange(_programs.Select(p => string.Join(",",
-            Csv(p.Name), Csv(p.Version), Csv(p.Publisher), Csv(p.InstallLocation), Csv(p.ActualInstallPath),
-            Csv(p.LocationSource), Csv(p.ParentProgram), Csv(p.OfficialWebsite), Csv(p.DownloadUrl),
-            Csv(p.OnlineSource), Csv(p.OnlineStatus), Csv(p.Source))));
-
+        var rows = new List<string> { "Program,Version,Publisher,Install Location,Actual Path,Location Source,Parent Program,Official Website,Download URL,Online Source,Online Status,Source" };
+        rows.AddRange(_programs.Select(p => string.Join(",", Csv(p.Name), Csv(p.Version), Csv(p.Publisher), Csv(p.InstallLocation), Csv(p.ActualInstallPath), Csv(p.LocationSource), Csv(p.ParentProgram), Csv(p.OfficialWebsite), Csv(p.DownloadUrl), Csv(p.OnlineSource), Csv(p.OnlineStatus), Csv(p.Source))));
         File.WriteAllText(dialog.FileName, string.Join(Environment.NewLine, rows), new UTF8Encoding(true));
         StatusText.Text = $"Exported {_programs.Count} programs.";
     }
