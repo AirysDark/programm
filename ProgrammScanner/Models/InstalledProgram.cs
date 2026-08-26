@@ -2,6 +2,8 @@ namespace ProgrammScanner.Models;
 
 public class InstalledProgram
 {
+    public bool IsOnlineSelected { get; set; }
+
     public string Name { get; set; } = "Unknown";
     public string Version { get; set; } = "";
     public string Publisher { get; set; } = "";
