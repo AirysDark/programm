@@ -16,7 +16,8 @@
                 <Button x:Name="FindOnlineButton" Content="Find Online for Selected" Width="170" Height="34" Margin="10,0,0,0" Click="FindOnlineButton_Click" />
                 <Button x:Name="FindOnlineCheckedButton" Content="Find Online for Checked" Width="175" Height="34" Margin="10,0,0,0" Click="FindOnlineCheckedButton_Click" />
                 <CheckBox x:Name="SelectAllCheckBox" Content="Select All" Margin="15,0,0,0"
-                          VerticalAlignment="Center" Click="SelectAllCheckBox_Click" />
+                          VerticalAlignment="Center" Checked="SelectAllCheckBox_Checked"
+                          Unchecked="SelectAllCheckBox_Unchecked" />
                 <Button x:Name="OpenWebsiteButton" Content="Open Website" Width="110" Height="34" Margin="10,0,0,0" Click="OpenWebsiteButton_Click"
                         Tag="OfficialWebsite" ContextMenu="{StaticResource BrowserContextMenu}" />
                 <Button x:Name="OpenDownloadButton" Content="Open Download" Width="120" Height="34" Margin="10,0,0,0" Click="OpenDownloadButton_Click"
@@ -30,7 +31,7 @@
         </StackPanel>
 
         <DataGrid x:Name="ProgramsGrid" AutoGenerateColumns="False" IsReadOnly="True"
-                  CanUserSortColumns="True" MouseDoubleClick="ProgramsGrid_MouseDoubleClick">
+                  CanUserSortColumns="True">
             <DataGrid.Resources>
                 <Style TargetType="DataGridCell">
                     <Style.Triggers>
@@ -47,12 +48,6 @@
             </DataGrid.Resources>
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="✓" Width="45" CanUserSort="False">
-                    <DataGridTemplateColumn.HeaderTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsChecked, ElementName=SelectAllCheckBox, Mode=OneWay}"
-                                      IsEnabled="False" HorizontalAlignment="Center" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.HeaderTemplate>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsOnlineSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
