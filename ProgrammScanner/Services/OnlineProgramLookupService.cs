@@ -24,18 +24,12 @@ public static class OnlineProgramLookupService
         var queries = BuildQueries(program).ToList();
         var results = new List<SearchResult>();
 
-        // First try Google-style web search results. If Google blocks automated requests,
-        // the same query is still saved as a clickable Google search fallback.
         foreach (var query in queries)
         {
-            var googleResults = await SearchGoogleAsync(query);
-            results.AddRange(googleResults);
-
-            if (results.Count >= 12)
-                break;
+            results.AddRange(await SearchGoogleAsync(query));
+            if (results.Count >= 12) break;
         }
 
-        // Fallback to DuckDuckGo HTML if Google returns a consent/captcha/empty page.
         if (results.Count == 0)
         {
             program.OnlineStatus = "Google unavailable, trying fallback search...";
@@ -62,8 +56,8 @@ public static class OnlineProgramLookupService
             return;
         }
 
-        var website = SelectBestResult(results, program, preferDownload: false);
-        var download = SelectBestResult(results, program, preferDownload: true, preferredUrl: website?.Url);
+        var website = SelectBestResult(results, program, false);
+        var download = SelectBestResult(results, program, true, website?.Url);
 
         if (website != null)
         {
@@ -71,11 +65,9 @@ public static class OnlineProgramLookupService
             program.OnlineSource = $"{website.Engine}: {GetHost(website.Url)}";
         }
 
-        if (download != null)
-            program.DownloadUrl = download.Url;
+        if (download != null) program.DownloadUrl = download.Url;
 
-        // Always keep a useful result rather than reporting Not Found.
-        if (string.IsNullOrWhiteSpace(program.OfficialWebsite) && results.Count > 0)
+        if (string.IsNullOrWhiteSpace(program.OfficialWebsite))
         {
             program.OfficialWebsite = results[0].Url;
             program.OnlineSource = $"{results[0].Engine}: {GetHost(results[0].Url)}";
@@ -105,15 +97,13 @@ public static class OnlineProgramLookupService
             if (!response.IsSuccessStatusCode) return [];
             var html = await response.Content.ReadAsStringAsync();
 
-            // Google can return consent/captcha pages instead of search results.
             if (html.Contains("unusual traffic", StringComparison.OrdinalIgnoreCase) ||
                 html.Contains("consent.google.com", StringComparison.OrdinalIgnoreCase))
                 return [];
 
             var results = new List<SearchResult>();
-            var matches = Regex.Matches(html,
-                @"<a[^>]+href=\"(?<url>https?://[^\"&]+)[^\"]*\"[^>]*>\s*(?:<[^>]+>)*\s*(?<title>[^<]{2,})",
-                RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            var pattern = "<a[^>]+href=\\\"(?<url>https?://[^\\\"&]+)[^\\\"]*\\\"[^>]*>\\s*(?:<[^>]+>)*\\s*(?<title>[^<]{2,})";
+            var matches = Regex.Matches(html, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             foreach (Match match in matches)
             {
@@ -127,10 +117,7 @@ public static class OnlineProgramLookupService
 
             return results;
         }
-        catch
-        {
-            return [];
-        }
+        catch { return []; }
     }
 
     private static async Task<List<SearchResult>> SearchDuckDuckGoAsync(string query)
@@ -146,9 +133,8 @@ public static class OnlineProgramLookupService
             var html = await response.Content.ReadAsStringAsync();
 
             var results = new List<SearchResult>();
-            var matches = Regex.Matches(html,
-                "<a[^>]*class=\"result__a\"[^>]*href=\"(?<url>[^\"]+)\"[^>]*>(?<title>.*?)</a>",
-                RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            var pattern = "<a[^>]*class=\\\"result__a\\\"[^>]*href=\\\"(?<url>[^\\\"]+)\\\"[^>]*>(?<title>.*?)</a>";
+            var matches = Regex.Matches(html, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
             foreach (Match match in matches)
             {
@@ -162,32 +148,23 @@ public static class OnlineProgramLookupService
 
             return results;
         }
-        catch
-        {
-            return [];
-        }
+        catch { return []; }
     }
 
-    private static SearchResult? SelectBestResult(IEnumerable<SearchResult> results,
-        InstalledProgram program, bool preferDownload, string? preferredUrl = null)
+    private static SearchResult? SelectBestResult(IEnumerable<SearchResult> results, InstalledProgram program, bool preferDownload, string? preferredUrl = null)
     {
         var publisherTokens = Tokens(program.Publisher).ToList();
         var programTokens = Tokens(program.Name).ToList();
         var preferredHost = string.IsNullOrWhiteSpace(preferredUrl) ? "" : GetHost(preferredUrl);
 
         return results
-            .Select(result => new
-            {
-                Result = result,
-                Score = ScoreResult(result, publisherTokens, programTokens, preferredHost, preferDownload)
-            })
+            .Select(result => new { Result = result, Score = ScoreResult(result, publisherTokens, programTokens, preferredHost, preferDownload) })
             .OrderByDescending(x => x.Score)
             .Select(x => x.Result)
             .FirstOrDefault();
     }
 
-    private static int ScoreResult(SearchResult result, List<string> publisherTokens,
-        List<string> programTokens, string preferredHost, bool preferDownload)
+    private static int ScoreResult(SearchResult result, List<string> publisherTokens, List<string> programTokens, string preferredHost, bool preferDownload)
     {
         var host = GetHost(result.Url).ToLowerInvariant();
         var text = (result.Title + " " + result.Url).ToLowerInvariant();
@@ -208,8 +185,6 @@ public static class OnlineProgramLookupService
         if (IsKnownOfficialPlatform(host)) score += 20;
         if (text.Contains("official")) score += 10;
         if (preferDownload && (text.Contains("download") || text.Contains("installer") || text.Contains("setup"))) score += 35;
-        if (!preferDownload && (text.Contains("home") || text.Contains("product") || text.Contains("documentation"))) score += 8;
-
         return score;
     }
 
@@ -217,15 +192,13 @@ public static class OnlineProgramLookupService
     {
         var name = QuoteIfNeeded(program.Name);
         var publisher = string.IsNullOrWhiteSpace(program.Publisher) ? "" : QuoteIfNeeded(program.Publisher);
-
         yield return $"{name} {publisher} official website".Trim();
         yield return $"{name} {publisher} download".Trim();
         yield return $"{name} installer";
         yield return $"{name} latest download";
     }
 
-    private static string QuoteIfNeeded(string value) =>
-        value.Contains(' ') ? $"\"{value}\"" : value;
+    private static string QuoteIfNeeded(string value) => value.Contains(' ') ? $"\"{value}\"" : value;
 
     private static IEnumerable<string> Tokens(string value) =>
         Regex.Matches(value ?? "", @"[A-Za-z0-9]{3,}")
@@ -262,7 +235,5 @@ public static class OnlineProgramLookupService
     }
 
     private static string StripHtml(string value) => Regex.Replace(value, "<.*?>", " ").Trim();
-
-    private static string GetHost(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "";
+    private static string GetHost(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "";
 }
