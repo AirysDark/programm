@@ -5,19 +5,16 @@ public class InstalledProgram
     public string Name { get; set; } = "Unknown";
     public string Version { get; set; } = "";
     public string Publisher { get; set; } = "";
-
-    // Friendly location shown in the main grid.
     public string InstallLocation { get; set; } = "";
-
-    // Exact path resolved from Windows registry or filesystem discovery.
     public string ActualInstallPath { get; set; } = "";
-
-    // Explains how ActualInstallPath was found.
     public string LocationSource { get; set; } = "Not Found";
-
-    // Parent product detected from the path, for example Visual Studio 2022 Community.
     public string ParentProgram { get; set; } = "";
-
     public string UninstallCommand { get; set; } = "";
     public string Source { get; set; } = "";
+
+    // Online lookup results. These are discovered only when the user requests a lookup.
+    public string OfficialWebsite { get; set; } = "";
+    public string DownloadUrl { get; set; } = "";
+    public string OnlineSource { get; set; } = "";
+    public string OnlineStatus { get; set; } = "Not searched";
 }
