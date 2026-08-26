@@ -14,11 +14,14 @@
             <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
                 <Button x:Name="ScanButton" Content="Scan Installed Programs" Width="180" Height="34" Click="ScanButton_Click" />
                 <Button x:Name="FindOnlineButton" Content="Find Online for Selected" Width="170" Height="34" Margin="10,0,0,0" Click="FindOnlineButton_Click" />
+                <Button x:Name="FindOnlineCheckedButton" Content="Find Online for Checked" Width="175" Height="34" Margin="10,0,0,0" Click="FindOnlineCheckedButton_Click" />
+                <CheckBox x:Name="SelectAllCheckBox" Content="Select All" Margin="15,0,0,0"
+                          VerticalAlignment="Center" Click="SelectAllCheckBox_Click" />
                 <Button x:Name="OpenWebsiteButton" Content="Open Website" Width="110" Height="34" Margin="10,0,0,0" Click="OpenWebsiteButton_Click"
                         Tag="OfficialWebsite" ContextMenu="{StaticResource BrowserContextMenu}" />
                 <Button x:Name="OpenDownloadButton" Content="Open Download" Width="120" Height="34" Margin="10,0,0,0" Click="OpenDownloadButton_Click"
                         Tag="DownloadUrl" ContextMenu="{StaticResource BrowserContextMenu}" />
-                <TextBox x:Name="SearchBox" Width="300" Height="34" Margin="10,0,0,0"
+                <TextBox x:Name="SearchBox" Width="220" Height="34" Margin="10,0,0,0"
                          VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged"
                          ToolTip="Search programs, publishers or locations" />
                 <Button Content="Export CSV" Width="100" Height="34" Margin="10,0,0,0" Click="ExportButton_Click" />
@@ -43,6 +46,20 @@
                 </Style>
             </DataGrid.Resources>
             <DataGrid.Columns>
+                <DataGridTemplateColumn Header="✓" Width="45" CanUserSort="False">
+                    <DataGridTemplateColumn.HeaderTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsChecked, ElementName=SelectAllCheckBox, Mode=OneWay}"
+                                      IsEnabled="False" HorizontalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.HeaderTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsOnlineSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      HorizontalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Program" Binding="{Binding Name}" Width="2*" />
                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="*" />
                 <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" />
