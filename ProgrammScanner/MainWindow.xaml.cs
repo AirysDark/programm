@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using ProgrammScanner.Models;
 using ProgrammScanner.Services;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -59,9 +60,13 @@ public partial class MainWindow : Window
 
     private void ProgramsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (ProgramsGrid.SelectedItem is not InstalledProgram program ||
+        var program = ProgramsGrid.SelectedItem as InstalledProgram;
+        if (program == null ||
             string.IsNullOrWhiteSpace(program.InstallLocation) ||
-            !Directory.Exists(program.InstallLocation)) return;
+            !Directory.Exists(program.InstallLocation))
+        {
+            return;
+        }
 
         Process.Start(new ProcessStartInfo
         {
